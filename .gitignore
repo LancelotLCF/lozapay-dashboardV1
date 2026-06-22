@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+build/
+__pycache__/
+*.py[cod]
+*.tsbuildinfo
+.venv/
+.python-packages/
+.env
+.env.local
+Data Izipay.xlsx
+work/pip-temp/
