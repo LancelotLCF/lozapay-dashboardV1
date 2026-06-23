@@ -91,7 +91,12 @@ class ExcelStore:
 
     def _read_excel(self, mtime: float) -> None:
         try:
-            df = pd.read_excel(self.path, sheet_name=SHEET_NAME, engine="openpyxl")
+            df = pd.read_excel(
+    self.path,
+    sheet_name=SHEET_NAME,
+    engine="openpyxl",
+    nrows=1000
+)
             missing = [column for column in REQUIRED_COLUMNS if column not in df.columns]
             if missing:
                 raise ValueError(f"Faltan columnas requeridas: {', '.join(missing)}")
