@@ -1,4 +1,5 @@
 node_modules/
+.pnpm-store/
 .next/
 dist/
 build/
@@ -9,5 +10,4 @@ __pycache__/
 .python-packages/
 .env
 .env.local
-Data Izipay.xlsx
 work/pip-temp/

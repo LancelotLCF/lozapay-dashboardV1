@@ -12,7 +12,6 @@ import { LineChart } from "@/components/LineChart";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/format";
 import type { ClientRow, DashboardData, DashboardFilters, ExecutiveRow } from "@/types/dashboard";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const EMPTY_FILTERS: DashboardFilters = { periodo: "", tipoVenta: "", jefatura: "", supervisor: "" };
 
 const executiveColumns: Array<Column<ExecutiveRow>> = [
@@ -50,7 +49,7 @@ export default function Home() {
     });
 
     try {
-      const response = await fetch(`${API_URL}/api/dashboard?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/dashboard?${params.toString()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("No se pudo cargar la información comercial.");
       setData((await response.json()) as DashboardData);
       setError(null);
