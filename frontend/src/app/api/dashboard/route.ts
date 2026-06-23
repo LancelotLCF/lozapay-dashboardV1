@@ -1,4 +1,4 @@
-import { statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
@@ -6,8 +6,7 @@ import * as XLSX from "xlsx";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const BASE_DIR = path.resolve(process.cwd(), "..");
-const EXCEL_PATH = path.join(BASE_DIR, "Data Izipay.xlsx");
+const EXCEL_FILE_NAME = "Data Izipay.xlsx";
 const SHEET_NAME = "Data";
 
 const REQUIRED_COLUMNS = [
@@ -58,13 +57,30 @@ type StoreData = {
 };
 
 let cachedMtime = 0;
+let cachedPath = "";
 let cachedData: StoreData | null = null;
 
-function emptyStatus(error: string | null = null, mtime = 0): StoreData {
+function resolveExcelPath(): string {
+  const cwd = process.cwd();
+  const candidates = [
+    path.resolve(cwd, EXCEL_FILE_NAME),
+    path.resolve(cwd, "..", EXCEL_FILE_NAME),
+  ];
+
+  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
+}
+
+function logExcelPath(excelPath: string): void {
+  console.log("process.cwd()", process.cwd());
+  console.log("Data Izipay.xlsx path", excelPath);
+  console.log("Data Izipay.xlsx exists", existsSync(excelPath));
+}
+
+function emptyStatus(excelPath: string, error: string | null = null, mtime = 0): StoreData {
   return {
     rows: [],
     status: {
-      excelPath: EXCEL_PATH,
+      excelPath,
       sheet: SHEET_NAME,
       lastModified: mtime ? new Date(mtime).toISOString() : null,
       error,
@@ -105,12 +121,15 @@ function periodValue(value: unknown): string {
 }
 
 function loadExcel(): StoreData {
-  try {
-    const stats = statSync(EXCEL_PATH);
-    const mtime = stats.mtimeMs;
-    if (cachedData && cachedMtime === mtime) return cachedData;
+  const excelPath = resolveExcelPath();
+  logExcelPath(excelPath);
 
-    const workbook = XLSX.readFile(EXCEL_PATH, { cellDates: true });
+  try {
+    const stats = statSync(excelPath);
+    const mtime = stats.mtimeMs;
+    if (cachedData && cachedMtime === mtime && cachedPath === excelPath) return cachedData;
+
+    const workbook = XLSX.readFile(excelPath, { cellDates: true });
     const sheet = workbook.Sheets[SHEET_NAME];
     if (!sheet) throw new Error(`No se encontrÃ³ la hoja: ${SHEET_NAME}`);
 
@@ -134,10 +153,11 @@ function loadExcel(): StoreData {
     });
 
     cachedMtime = mtime;
+    cachedPath = excelPath;
     cachedData = {
       rows,
       status: {
-        excelPath: EXCEL_PATH,
+        excelPath,
         sheet: SHEET_NAME,
         lastModified: new Date(mtime).toISOString(),
         error: null,
@@ -147,7 +167,7 @@ function loadExcel(): StoreData {
     return cachedData;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error inesperado leyendo el Excel.";
-    cachedData = emptyStatus(message, cachedMtime);
+    cachedData = emptyStatus(excelPath, message, cachedMtime);
     return cachedData;
   }
 }
