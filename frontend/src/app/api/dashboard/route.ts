@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXCEL_FILE_NAME = "Data Izipay.xlsx";
+const EXCEL_PATH = path.join(process.cwd(), "public", "Data Izipay.xlsx");
 const SHEET_NAME = "Data";
 
 const REQUIRED_COLUMNS = [
@@ -60,16 +60,6 @@ let cachedMtime = 0;
 let cachedPath = "";
 let cachedData: StoreData | null = null;
 
-function resolveExcelPath(): string {
-  const cwd = process.cwd();
-  const candidates = [
-    path.resolve(cwd, EXCEL_FILE_NAME),
-    path.resolve(cwd, "..", EXCEL_FILE_NAME),
-  ];
-
-  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0];
-}
-
 function logExcelPath(excelPath: string): void {
   console.log("process.cwd()", process.cwd());
   console.log("Data Izipay.xlsx path", excelPath);
@@ -121,7 +111,7 @@ function periodValue(value: unknown): string {
 }
 
 function loadExcel(): StoreData {
-  const excelPath = resolveExcelPath();
+  const excelPath = EXCEL_PATH;
   logExcelPath(excelPath);
 
   try {
