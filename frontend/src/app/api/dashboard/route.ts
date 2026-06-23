@@ -1,12 +1,9 @@
-import { existsSync, statSync } from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXCEL_PATH = path.join(process.cwd(), "public", "Data Izipay.xlsx");
 const SHEET_NAME = "Data";
 
 const REQUIRED_COLUMNS = [
@@ -56,23 +53,16 @@ type StoreData = {
   status: StoreStatus;
 };
 
-let cachedMtime = 0;
 let cachedPath = "";
 let cachedData: StoreData | null = null;
 
-function logExcelPath(excelPath: string): void {
-  console.log("process.cwd()", process.cwd());
-  console.log("Data Izipay.xlsx path", excelPath);
-  console.log("Data Izipay.xlsx exists", existsSync(excelPath));
-}
-
-function emptyStatus(excelPath: string, error: string | null = null, mtime = 0): StoreData {
+function emptyStatus(excelPath: string, error: string | null = null, lastModified: string | null = null): StoreData {
   return {
     rows: [],
     status: {
       excelPath,
       sheet: SHEET_NAME,
-      lastModified: mtime ? new Date(mtime).toISOString() : null,
+      lastModified,
       error,
       rows: 0,
     },
@@ -110,16 +100,16 @@ function periodValue(value: unknown): string {
   return cleanText(value);
 }
 
-function loadExcel(): StoreData {
-  const excelPath = EXCEL_PATH;
-  logExcelPath(excelPath);
-
+async function loadExcel(requestUrl: string): Promise<StoreData> {
+  const excelPath = new URL("/Data Izipay.xlsx", requestUrl).toString();
   try {
-    const stats = statSync(excelPath);
-    const mtime = stats.mtimeMs;
-    if (cachedData && cachedMtime === mtime && cachedPath === excelPath) return cachedData;
+    if (cachedData && cachedPath === excelPath) return cachedData;
 
-    const workbook = XLSX.readFile(excelPath, { cellDates: true });
+    const response = await fetch(excelPath, { cache: "no-store" });
+    if (!response.ok) throw new Error(`No se pudo leer el Excel desde ${excelPath}: ${response.status} ${response.statusText}`);
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const workbook = XLSX.read(buffer, { type: "buffer" });
     const sheet = workbook.Sheets[SHEET_NAME];
     if (!sheet) throw new Error(`No se encontrÃ³ la hoja: ${SHEET_NAME}`);
 
@@ -142,14 +132,13 @@ function loadExcel(): StoreData {
       return row;
     });
 
-    cachedMtime = mtime;
     cachedPath = excelPath;
     cachedData = {
       rows,
       status: {
         excelPath,
         sheet: SHEET_NAME,
-        lastModified: new Date(mtime).toISOString(),
+        lastModified: response.headers.get("last-modified"),
         error: null,
         rows: rows.length,
       },
@@ -157,7 +146,7 @@ function loadExcel(): StoreData {
     return cachedData;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error inesperado leyendo el Excel.";
-    cachedData = emptyStatus(excelPath, message, cachedMtime);
+    cachedData = emptyStatus(excelPath, message);
     return cachedData;
   }
 }
@@ -196,7 +185,7 @@ function filterRows(rows: DataRow[], searchParams: URLSearchParams): DataRow[] {
 }
 
 export async function GET(request: Request) {
-  const { rows, status } = loadExcel();
+  const { rows, status } = await loadExcel(request.url);
   const filtered = filterRows(rows, new URL(request.url).searchParams);
   const qRuc = uniqueCount(filtered, "Ruc");
   const activeRows = filtered.filter((row) => cleanNumber(row["Ruc Activo"]) > 0);
