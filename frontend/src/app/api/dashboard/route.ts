@@ -53,9 +53,6 @@ type StoreData = {
   status: StoreStatus;
 };
 
-let cachedPath = "";
-let cachedData: StoreData | null = null;
-
 function emptyStatus(excelPath: string, error: string | null = null, lastModified: string | null = null): StoreData {
   return {
     rows: [],
@@ -100,13 +97,15 @@ function periodValue(value: unknown): string {
   return cleanText(value);
 }
 
-async function loadExcel(requestUrl: string): Promise<StoreData> {
-  const excelPath = new URL("/Data Izipay.xlsx", requestUrl).toString();
+async function loadExcel(): Promise<StoreData> {
+  const excelPath = process.env.EXCEL_URL;
   try {
-    if (cachedData && cachedPath === excelPath) return cachedData;
+    if (!excelPath) {
+      throw new Error("Falta configurar la variable de entorno EXCEL_URL con el enlace directo al Excel.");
+    }
 
     const response = await fetch(excelPath, { cache: "no-store" });
-    if (!response.ok) throw new Error(`No se pudo leer el Excel desde ${excelPath}: ${response.status} ${response.statusText}`);
+    if (!response.ok) throw new Error(`No se pudo descargar el Excel desde EXCEL_URL: ${response.status} ${response.statusText}`);
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const workbook = XLSX.read(buffer, { type: "buffer" });
@@ -132,8 +131,7 @@ async function loadExcel(requestUrl: string): Promise<StoreData> {
       return row;
     });
 
-    cachedPath = excelPath;
-    cachedData = {
+    return {
       rows,
       status: {
         excelPath,
@@ -143,11 +141,9 @@ async function loadExcel(requestUrl: string): Promise<StoreData> {
         rows: rows.length,
       },
     };
-    return cachedData;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error inesperado leyendo el Excel.";
-    cachedData = emptyStatus(excelPath, message);
-    return cachedData;
+    return emptyStatus(excelPath ?? "EXCEL_URL no configurada", message);
   }
 }
 
@@ -185,7 +181,7 @@ function filterRows(rows: DataRow[], searchParams: URLSearchParams): DataRow[] {
 }
 
 export async function GET(request: Request) {
-  const { rows, status } = await loadExcel(request.url);
+  const { rows, status } = await loadExcel();
   const filtered = filterRows(rows, new URL(request.url).searchParams);
   const qRuc = uniqueCount(filtered, "Ruc");
   const activeRows = filtered.filter((row) => cleanNumber(row["Ruc Activo"]) > 0);

@@ -5,7 +5,7 @@ Aplicacion web profesional para analizar el Excel `Data Izipay.xlsx`, usando exc
 ## Estructura
 
 - `frontend`: Dashboard Next.js 15 con API Route, React, TypeScript, Tailwind CSS, Recharts, Lucide React y xlsx.
-- `Data Izipay.xlsx`: archivo fuente leido por la API Route.
+- `EXCEL_URL`: enlace directo al Excel usado por la API Route.
 
 ## Ejecutar localmente
 
